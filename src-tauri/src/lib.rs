@@ -172,6 +172,30 @@ pub fn run() {
             // --- Global shortcuts ---
             shortcuts::register_all(app.handle(), &initial_settings);
 
+            // --- Floating widget window (transparent, always-on-top) ---
+            // Created hidden; shown automatically when the main window is hidden.
+            if initial_settings.floating_widget_enabled {
+                let widget_result = tauri::WebviewWindowBuilder::new(
+                    app,
+                    "widget",
+                    tauri::WebviewUrl::App("/widget".into()),
+                )
+                .title("Pomotroid Widget")
+                .inner_size(140.0, 140.0)
+                .transparent(true)
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .visible(false)
+                .build();
+                if let Err(e) = widget_result {
+                    log::error!("[widget] failed to create floating widget window: {e}");
+                } else {
+                    log::info!("[widget] floating widget window created (hidden)");
+                }
+            }
+
             // --- WebSocket server (opt-in) ---
             let ws_state = websocket::WsState::new();
             app.manage(Arc::clone(&ws_state));
@@ -335,7 +359,7 @@ pub fn run() {
                             let _ = win_for_close.hide();
                         } else {
                             // Main window is truly closing — close child windows if open.
-                            for label in ["settings", "stats"] {
+                            for label in ["settings", "stats", "widget"] {
                                 if let Some(win) = app_for_close.get_webview_window(label) {
                                     let _ = win.close();
                                 }

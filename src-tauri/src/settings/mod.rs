@@ -65,6 +65,8 @@ pub struct Settings {
     pub window_width: Option<u32>,
     /// Last known window height (physical pixels). `None` = use OS default.
     pub window_height: Option<u32>,
+    /// Whether the floating widget window is enabled.
+    pub floating_widget_enabled: bool,
 }
 
 impl Default for Settings {
@@ -124,6 +126,7 @@ impl Default for Settings {
             window_y: None,
             window_width: None,
             window_height: None,
+            floating_widget_enabled: true,
         }
     }
 }
@@ -249,6 +252,7 @@ pub fn load(conn: &Connection) -> Result<Settings> {
         window_y: parse_opt_i32(&map, "window_y"),
         window_width: parse_opt_u32(&map, "window_width"),
         window_height: parse_opt_u32(&map, "window_height"),
+        floating_widget_enabled: parse_bool(&map, "floating_widget_enabled", d.floating_widget_enabled),
     })
 }
 

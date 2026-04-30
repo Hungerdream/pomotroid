@@ -214,6 +214,40 @@ pub fn settings_set(
         });
     }
 
+    // Create or destroy the floating widget when floating_widget_enabled changes.
+    if key == "floating_widget_enabled" {
+        if new_settings.floating_widget_enabled {
+            // Create the widget window if it doesn't exist
+            if app.get_webview_window("widget").is_none() {
+                let result = tauri::WebviewWindowBuilder::new(
+                    &app,
+                    "widget",
+                    tauri::WebviewUrl::App("/widget".into()),
+                )
+                .title("Pomotroid Widget")
+                .inner_size(140.0, 140.0)
+                .transparent(true)
+                .decorations(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .visible(false)
+                .build();
+                if let Err(e) = result {
+                    log::error!("[widget] failed to create widget window: {e}");
+                } else {
+                    log::info!("[widget] floating widget window created (setting enabled)");
+                }
+            }
+        } else {
+            // Close the widget window if it exists
+            if let Some(widget) = app.get_webview_window("widget") {
+                let _ = widget.close();
+                log::info!("[widget] floating widget window closed (setting disabled)");
+            }
+        }
+    }
+
     app.emit("settings:changed", &new_settings).ok();
     Ok(new_settings)
 }
@@ -383,8 +417,10 @@ pub fn stats_get_heatmap(db: State<'_, DbState>) -> Result<HeatmapStats, String>
 // ---------------------------------------------------------------------------
 
 /// Show or hide the main window.
+/// When hiding the main window, the floating widget is shown (if enabled and timer is active).
+/// When showing the main window, the floating widget is hidden.
 #[tauri::command]
-pub fn window_set_visibility(visible: bool, app: AppHandle) -> Result<(), String> {
+pub fn window_set_visibility(visible: bool, app: AppHandle, db: State<'_, DbState>, timer: State<'_, TimerController>) -> Result<(), String> {
     log::debug!("[window] set visibility={visible}");
     let window = app
         .get_webview_window("main")
@@ -392,8 +428,28 @@ pub fn window_set_visibility(visible: bool, app: AppHandle) -> Result<(), String
     if visible {
         window.show().map_err(|e| e.to_string())?;
         window.set_focus().map_err(|e| e.to_string())?;
+        // Hide the floating widget when main window is shown
+        if let Some(widget) = app.get_webview_window("widget") {
+            let _ = widget.hide();
+        }
     } else {
         window.hide().map_err(|e| e.to_string())?;
+        // Show the floating widget when main window is hidden
+        if let Some(widget) = app.get_webview_window("widget") {
+            let enabled = {
+                let conn = db.lock().map_err(|e| e.to_string())?;
+                settings::load(&conn).map(|s| s.floating_widget_enabled).unwrap_or(true)
+            };
+            if enabled {
+                // Only show if timer is active (not idle with zero elapsed)
+                let snap = timer.get_snapshot();
+                let timer_active = snap.is_running || snap.is_paused;
+                if timer_active {
+                    let _ = widget.show();
+                    let _ = widget.set_focus();
+                }
+            }
+        }
     }
     Ok(())
 }

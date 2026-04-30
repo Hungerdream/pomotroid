@@ -38,5 +38,6 @@ pub const DEFAULTS: &[(&str, &str)] = &[
     ("local_shortcut_volume_down", "ArrowDown"),
     ("local_shortcut_volume_up", "ArrowUp"),
     ("local_shortcut_mute", "m"),
+    ("floating_widget_enabled", "true"),
     ("local_shortcut_fullscreen", "F11"),
 ];
